@@ -1,0 +1,33 @@
+{
+  "profiles": [
+    {
+      "name": "Mechatronics Technician",
+      "description": "Maintains and repairs automated equipment combining mechanical, electrical, and control systems.",
+      "skills": [
+        "Mechanical Assembly",
+        "Safety Standards",
+        "PLC Programming",
+        "Industrial Robotics",
+        "Sensors and Actuators"
+      ],
+      "knowledge": [
+        "Troubleshooting",
+        "Preventive Maintenance"
+      ]
+    },
+    {
+      "name": "Industrial Maintenance Manager",
+      "description": "Leads maintenance strategy, reliability, and team operations for industrial facilities.",
+      "skills": [
+        "Maintenance Planning",
+        "Root Cause Analysis",
+        "Safety Compliance",
+        "Asset Management"
+      ],
+      "knowledge": [
+        "Reliability Engineering",
+        "Team Leadership"
+      ]
+    }
+  ]
+}
