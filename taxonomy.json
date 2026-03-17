@@ -28,6 +28,76 @@
         "Reliability Engineering",
         "Team Leadership"
       ]
+    },
+    {
+      "name": "Industrial Automator",
+      "description": "Specializes in designing and implementing automated control systems for manufacturing lines.",
+      "skills": [
+        "SCADA Systems",
+        "HMI Design",
+        "Industrial IoT",
+        "Control Logic"
+      ],
+      "knowledge": [
+        "Cyber-Physical Systems",
+        "Communication Protocols"
+      ]
+    },
+    {
+      "name": "UX Designer",
+      "description": "Creates intuitive digital experiences through user research and interface prototyping.",
+      "skills": [
+        "Wireframing",
+        "User Testing",
+        "Figma Prototyping",
+        "Information Architecture"
+      ],
+      "knowledge": [
+        "User-Centered Design",
+        "Accessibility Standards"
+      ]
+    },
+    {
+      "name": "Full Stack Dev",
+      "description": "Develops both client-side and server-side logic for modern web applications.",
+      "skills": [
+        "JavaScript ES6",
+        "REST API Design",
+        "Database Modeling",
+        "Responsive Design"
+      ],
+      "knowledge": [
+        "Software Architecture",
+        "Version Control"
+      ]
+    },
+    {
+      "name": "Product Manager",
+      "description": "Bridges the gap between business goals, user needs, and technical constraints.",
+      "skills": [
+        "Agile Methodology",
+        "Roadmapping",
+        "Market Analysis",
+        "Stakeholder Management"
+      ],
+      "knowledge": [
+        "Product Lifecycle Management",
+        "Data-Driven Decision Making"
+      ]
+    },
+    {
+      "name": "AI Engineer",
+      "description": "Builds and deploys machine learning models and intelligent automation systems.",
+      "skills": [
+        "Python Programming",
+        "Model Training",
+        "Natural Language Processing",
+        "Neural Networks"
+      ],
+      "knowledge": [
+        "Statistical Modeling",
+        "AI Ethics"
+      ]
     }
   ]
 }
