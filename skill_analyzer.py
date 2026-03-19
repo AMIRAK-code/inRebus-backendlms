@@ -1,10 +1,10 @@
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -30,6 +30,20 @@ class RecommendationItem(BaseModel):
     target_skill: str
     type: Literal["Course", "Article", "Video", "Project"] | str
     duration: str
+    upvotes: int = Field(default=0, ge=0, description="Community upvote count for this recommendation")
+
+
+class JobListing(BaseModel):
+    id: int
+    title: str
+    company: str
+    location: str
+    description: str
+    required_skills: List[str]
+    match_percentage: Optional[float] = Field(
+        default=None,
+        description="Percentage of required skills matched against the user's profile (0-100)",
+    )
 
 
 @dataclass(frozen=True)
@@ -80,6 +94,68 @@ class SkillAnalyzer:
         with open(path, "r", encoding="utf-8") as f:
             taxonomy = json.load(f)
         return cls(taxonomy)
+
+    # ------------------------------------------------------------------
+    # Job-search helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def load_jobs(path: str) -> List[JobListing]:
+        """Load job listings from a JSON file."""
+        with open(path, "r", encoding="utf-8") as f:
+            raw: List[Dict[str, Any]] = json.load(f)
+        return [JobListing(**item) for item in raw]
+
+    @staticmethod
+    def search_jobs(
+        jobs: List[JobListing],
+        user_skills: List[str],
+        query: Optional[str] = None,
+        limit: int = 10,
+    ) -> List[JobListing]:
+        """Return *limit* job listings ranked by skill-match percentage.
+
+        Each returned ``JobListing`` has its ``match_percentage`` field
+        populated.  Jobs with no skill overlap are included last so that
+        callers always get a full result set when ``limit`` allows it.
+
+        Args:
+            jobs: Full catalogue of available job listings.
+            user_skills: Skills extracted from the user's profile.
+            query: Optional free-text query to pre-filter by title/description
+                   (case-insensitive substring match).
+            limit: Maximum number of results to return (1-50).
+        """
+        user_skill_tokens: set = set()
+        for skill in user_skills:
+            user_skill_tokens.update(_normalize_text(skill).split())
+
+        candidates = jobs
+        if query:
+            q_lower = query.strip().lower()
+            candidates = [
+                j for j in candidates
+                if q_lower in j.title.lower() or q_lower in j.description.lower()
+            ]
+
+        scored: List[Tuple[float, JobListing]] = []
+        for job in candidates:
+            if not job.required_skills:
+                pct = 0.0
+            else:
+                matched = sum(
+                    1 for skill in job.required_skills
+                    if bool(user_skill_tokens.intersection(set(_normalize_text(skill).split())))
+                )
+                pct = round(matched / len(job.required_skills) * 100.0, 2)
+            scored.append((pct, job))
+
+        scored.sort(key=lambda t: t[0], reverse=True)
+
+        results: List[JobListing] = []
+        for pct, job in scored[:limit]:
+            results.append(job.copy(update={"match_percentage": pct}))
+        return results
 
     def get_roles(self) -> List[str]:
         return self.role_names
@@ -187,6 +263,10 @@ class SkillAnalyzer:
     def _recommend_for_gaps(self, gaps: List[str]) -> List[RecommendationItem]:
         recs: List[RecommendationItem] = []
         for idx, skill in enumerate(gaps, start=1):
+            # Seed simulated upvote scores in priority order: the first gap
+            # (most critical missing skill) receives the highest score.
+            # In production these values would come from real community upvote data.
+            upvotes = max(0, (len(gaps) - idx + 1) * 10)
             recs.append(
                 RecommendationItem(
                     id=idx,
@@ -194,6 +274,7 @@ class SkillAnalyzer:
                     target_skill=skill,
                     type="Course",
                     duration="4h",
+                    upvotes=upvotes,
                 )
             )
         return recs
