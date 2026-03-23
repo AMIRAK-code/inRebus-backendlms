@@ -1,103 +1,33 @@
-{
-  "profiles": [
-    {
-      "name": "Mechatronics Technician",
-      "description": "Maintains and repairs automated equipment combining mechanical, electrical, and control systems.",
-      "skills": [
-        "Mechanical Assembly",
-        "Safety Standards",
-        "PLC Programming",
-        "Industrial Robotics",
-        "Sensors and Actuators"
-      ],
-      "knowledge": [
-        "Troubleshooting",
-        "Preventive Maintenance"
-      ]
-    },
-    {
-      "name": "Industrial Maintenance Manager",
-      "description": "Leads maintenance strategy, reliability, and team operations for industrial facilities.",
-      "skills": [
-        "Maintenance Planning",
-        "Root Cause Analysis",
-        "Safety Compliance",
-        "Asset Management"
-      ],
-      "knowledge": [
-        "Reliability Engineering",
-        "Team Leadership"
-      ]
-    },
-    {
-      "name": "Industrial Automator",
-      "description": "Specializes in designing and implementing automated control systems for manufacturing lines.",
-      "skills": [
-        "SCADA Systems",
-        "HMI Design",
-        "Industrial IoT",
-        "Control Logic"
-      ],
-      "knowledge": [
-        "Cyber-Physical Systems",
-        "Communication Protocols"
-      ]
-    },
-    {
-      "name": "UX Designer",
-      "description": "Creates intuitive digital experiences through user research and interface prototyping.",
-      "skills": [
-        "Wireframing",
-        "User Testing",
-        "Figma Prototyping",
-        "Information Architecture"
-      ],
-      "knowledge": [
-        "User-Centered Design",
-        "Accessibility Standards"
-      ]
-    },
-    {
-      "name": "Full Stack Dev",
-      "description": "Develops both client-side and server-side logic for modern web applications.",
-      "skills": [
-        "JavaScript ES6",
-        "REST API Design",
-        "Database Modeling",
-        "Responsive Design"
-      ],
-      "knowledge": [
-        "Software Architecture",
-        "Version Control"
-      ]
-    },
-    {
-      "name": "Product Manager",
-      "description": "Bridges the gap between business goals, user needs, and technical constraints.",
-      "skills": [
-        "Agile Methodology",
-        "Roadmapping",
-        "Market Analysis",
-        "Stakeholder Management"
-      ],
-      "knowledge": [
-        "Product Lifecycle Management",
-        "Data-Driven Decision Making"
-      ]
-    },
-    {
-      "name": "AI Engineer",
-      "description": "Builds and deploys machine learning models and intelligent automation systems.",
-      "skills": [
-        "Python Programming",
-        "Model Training",
-        "Natural Language Processing",
-        "Neural Networks"
-      ],
-      "knowledge": [
-        "Statistical Modeling",
-        "AI Ethics"
-      ]
-    }
-  ]
-}
+import pandas as pd
+import json
+
+def convert_percorsi_to_json(csv_filepath, json_filepath):
+    """
+    Transforms the Regione Piemonte 'Percorsi standard' CSV into a clean JSON structure.
+    """
+    # Load CSV, treating everything as strings to prevent ID truncation
+    df = pd.read_csv(csv_filepath, dtype=str)
+    
+    # Clean up column headers (remove invisible spaces and newlines)
+    df.columns = [col.strip().replace('\n', ' ') for col in df.columns]
+    
+    # Replace Pandas NaN values with standard JSON nulls
+    df = df.where(pd.notnull(df), None)
+    
+    # Convert the dataframe to a list of dictionaries
+    records = df.to_dict(orient='records')
+    
+    # Wrap in a root object and export
+    output_data = {"percorsi_standard": records}
+    
+    with open(json_filepath, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+        
+    print(f"Success: {len(records)} training paths exported to {json_filepath}")
+
+if __name__ == "__main__":
+    # Ensure this matches your extracted CSV filename
+    input_file = "Estrazione_percorsi_standard_19-03-2026_14.09.xlsx - Percorsi standard.csv"
+    output_file = "percorsi_standard.json"
+    
+    convert_percorsi_to_json(input_file, output_file)
