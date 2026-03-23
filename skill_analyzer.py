@@ -113,17 +113,18 @@ class SkillAnalyzer:
     @classmethod
     def from_competenze_csv(cls, path: str) -> "SkillAnalyzer":
         """
-        Directly parses 'Competenze-AC.csv' to bypass GitHub LFS JSON size limits.
-        Groups skills/knowledge by Competence Area to act as 'roles'.
+        Directly parses a competencies CSV to bypass GitHub LFS JSON size limits.
+        Supports both English and Italian taxonomy structures.
         """
         competencies = {}
         try:
             with open(path, "r", encoding="utf-8-sig") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    comp_name = row.get("DENOMINAZIONE COMPETENZA", "").strip()
-                    tipo = row.get("TIPO", "").strip().lower()
-                    desc = row.get("DESCRIZIONE ABILITA'/CONOSCENZA", "").strip()
+                    # Dynamically check for either English or Italian column headers
+                    comp_name = row.get("Competence Name", row.get("Competence", row.get("DENOMINAZIONE COMPETENZA", ""))).strip()
+                    tipo = row.get("Type", row.get("TIPO", "")).strip().lower()
+                    desc = row.get("Description", row.get("DESCRIZIONE ABILITA'/CONOSCENZA", "")).strip()
                     
                     if not comp_name or not desc:
                         continue
@@ -131,15 +132,56 @@ class SkillAnalyzer:
                     if comp_name not in competencies:
                         competencies[comp_name] = {"name": comp_name, "skills": [], "knowledge": []}
                         
-                    if "abilità" in tipo:
+                    # Map to arrays based on English or Italian type strings
+                    if "skill" in tipo or "abilità" in tipo:
                         competencies[comp_name]["skills"].append(desc)
-                    elif "conoscenz" in tipo:
+                    elif "knowledge" in tipo or "conoscenz" in tipo:
                         competencies[comp_name]["knowledge"].append(desc)
                         
             taxonomy = {"profiles": list(competencies.values())}
             print(f"Successfully loaded {len(taxonomy['profiles'])} competencies directly from CSV.")
         except Exception as e:
             print(f"CSV Load Error: {e}")
+            taxonomy = {"profiles": []}
+            
+        return cls(taxonomy)
+
+    @classmethod
+    def from_esco_json(cls, path: str) -> "SkillAnalyzer":
+        """
+        Directly parses flat ESCO JSON arrays into the internal taxonomy format.
+        Maps occupationLabel -> role, skillLabel -> skills/knowledge.
+        """
+        competencies = {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content.startswith("version https://git-lfs"):
+                    print(f"CRITICAL: {path} is a Git LFS pointer.")
+                    return cls({"profiles": []})
+                
+                raw_data = json.loads(content)
+                
+                for row in raw_data:
+                    role_name = row.get("occupationLabel", "").strip()
+                    skill_type = row.get("skillType", "").strip().lower()
+                    skill_name = row.get("skillLabel", "").strip()
+                    
+                    if not role_name or not skill_name:
+                        continue
+                        
+                    if role_name not in competencies:
+                        competencies[role_name] = {"name": role_name, "skills": [], "knowledge": []}
+                        
+                    if "knowledge" in skill_type:
+                        competencies[role_name]["knowledge"].append(skill_name)
+                    else:
+                        competencies[role_name]["skills"].append(skill_name)
+                        
+            taxonomy = {"profiles": list(competencies.values())}
+            print(f"Successfully loaded {len(taxonomy['profiles'])} ESCO occupations.")
+        except Exception as e:
+            print(f"ESCO Load Error: {e}")
             taxonomy = {"profiles": []}
             
         return cls(taxonomy)
