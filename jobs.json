@@ -1,198 +1,44 @@
 [
   {
     "id": 1,
-    "title": "Mechatronics Technician",
-    "company": "AutoTech Industries",
-    "location": "Frankfurt, Germany",
-    "description": "Maintain, calibrate, and repair automated production equipment combining mechanical, electrical, and control systems on a busy manufacturing floor.",
+    "title": "direttore tecnico di allestimento",
+    "company": "Teatro Regio Torino",
+    "location": "Torino, Italia",
+    "industry": "Performing Arts",
+    "description": "I direttori tecnici di allestimento realizzano le visioni artistiche dei creatori nel rispetto dei vincoli tecnici. Coordinano le operazioni di diverse unità della produzione, come quelle di scenografia, guardaroba, suono e illuminazione e trucco. Adattano il prototipo e studiano la fattibilità, la realizzazione, il funzionamento e il monitoraggio tecnico del progetto artistico.",
     "required_skills": [
-      "Mechanical Assembly",
-      "PLC Programming",
-      "Industrial Robotics",
-      "Sensors and Actuators",
-      "Safety Standards"
-    ]
+      "adapt designers’ work to the performance venue",
+      "adapt to artists' creative demands",
+      "coordinate technical teams in artistic productions",
+      "coordinate with creative departments",
+      "theatre techniques",
+      "promote health and safety",
+      "write technical riders"
+    ],
+    "metadata": {
+      "esco_uri": "http://data.europa.eu/esco/occupation/00030d09-2b3a-4efd-87cc-c4ea39d27c34",
+      "type": "essential"
+    }
   },
   {
     "id": 2,
-    "title": "Senior Mechatronics Engineer",
-    "company": "Precision Robotics GmbH",
-    "location": "Munich, Germany",
-    "description": "Lead integration of mechanical and electronic systems for next-generation robotic assembly lines, including PLC configuration and preventive maintenance planning.",
+    "title": "conduttore di macchine per la trafila di metalli",
+    "company": "Industrie Metallurgiche Piemontesi",
+    "location": "Settimo Torinese, Italia",
+    "industry": "Metallurgy",
+    "description": "I conduttori di macchine per la trafila di metalli installano e utilizzano macchine per la trafila per prodotti in metalli ferrosi e non ferrosi, destinati alla realizzazione di fili, barre, condutture, profilati cavi e tubi di forma specifica.",
     "required_skills": [
-      "PLC Programming",
-      "Industrial Robotics",
-      "Sensors and Actuators",
-      "Mechanical Assembly",
-      "Troubleshooting"
-    ]
-  },
-  {
-    "id": 3,
-    "title": "Industrial Maintenance Manager",
-    "company": "GlobalMfg Corp",
-    "location": "Lyon, France",
-    "description": "Own the maintenance strategy for a 24/7 production site, leading a team of 15 technicians, managing asset lifecycles, and driving reliability improvements.",
-    "required_skills": [
-      "Maintenance Planning",
-      "Root Cause Analysis",
-      "Safety Compliance",
-      "Asset Management",
-      "Team Leadership"
-    ]
-  },
-  {
-    "id": 4,
-    "title": "Reliability Engineer",
-    "company": "IndustrialEdge",
-    "location": "Chicago, USA",
-    "description": "Apply reliability engineering practices to reduce unplanned downtime across a multi-site manufacturing network.",
-    "required_skills": [
-      "Root Cause Analysis",
-      "Asset Management",
-      "Reliability Engineering",
-      "Maintenance Planning",
-      "Safety Compliance"
-    ]
-  },
-  {
-    "id": 5,
-    "title": "Industrial Automation Engineer",
-    "company": "SmartFactory Solutions",
-    "location": "Turin, Italy",
-    "description": "Design and deploy SCADA and HMI systems to automate discrete and process manufacturing operations.",
-    "required_skills": [
-      "SCADA Systems",
-      "HMI Design",
-      "Control Logic",
-      "Industrial IoT",
-      "Communication Protocols"
-    ]
-  },
-  {
-    "id": 6,
-    "title": "OT/IIoT Systems Integrator",
-    "company": "ConnectedPlant Inc.",
-    "location": "Singapore",
-    "description": "Bridge operational technology and IT networks, deploying IIoT gateways and integrating plant data into cloud dashboards.",
-    "required_skills": [
-      "Industrial IoT",
-      "SCADA Systems",
-      "Cyber-Physical Systems",
-      "Communication Protocols",
-      "HMI Design"
-    ]
-  },
-  {
-    "id": 7,
-    "title": "UX Designer",
-    "company": "DigitalCraft Studio",
-    "location": "Amsterdam, Netherlands",
-    "description": "Create elegant, accessible interfaces for a SaaS platform serving 500k users, from discovery research through high-fidelity Figma prototypes.",
-    "required_skills": [
-      "Wireframing",
-      "User Testing",
-      "Figma Prototyping",
-      "Information Architecture",
-      "Accessibility Standards"
-    ]
-  },
-  {
-    "id": 8,
-    "title": "Product Designer",
-    "company": "FinTech Ventures",
-    "location": "London, UK",
-    "description": "Own end-to-end product design for mobile banking app, conducting user research, wireframing concepts, and iterating through usability testing.",
-    "required_skills": [
-      "User Testing",
-      "Wireframing",
-      "Figma Prototyping",
-      "User-Centered Design",
-      "Information Architecture"
-    ]
-  },
-  {
-    "id": 9,
-    "title": "Full Stack Developer",
-    "company": "CloudBase Technologies",
-    "location": "Remote",
-    "description": "Build and maintain customer-facing web applications and internal APIs, using modern JavaScript frameworks, RESTful services, and relational databases.",
-    "required_skills": [
-      "JavaScript ES6",
-      "REST API Design",
-      "Database Modeling",
-      "Responsive Design",
-      "Version Control"
-    ]
-  },
-  {
-    "id": 10,
-    "title": "Backend Engineer",
-    "company": "ScaleUp Labs",
-    "location": "Berlin, Germany",
-    "description": "Design scalable microservices and REST APIs that power a high-traffic e-commerce platform, with focus on database modeling and software architecture.",
-    "required_skills": [
-      "REST API Design",
-      "Database Modeling",
-      "Software Architecture",
-      "Version Control",
-      "JavaScript ES6"
-    ]
-  },
-  {
-    "id": 11,
-    "title": "Product Manager",
-    "company": "GrowthCo",
-    "location": "New York, USA",
-    "description": "Drive product strategy and roadmap for a B2B SaaS platform, partnering with engineering, design, and sales stakeholders to deliver measurable business outcomes.",
-    "required_skills": [
-      "Agile Methodology",
-      "Roadmapping",
-      "Market Analysis",
-      "Stakeholder Management",
-      "Data-Driven Decision Making"
-    ]
-  },
-  {
-    "id": 12,
-    "title": "Technical Product Manager",
-    "company": "DataPulse",
-    "location": "Toronto, Canada",
-    "description": "Translate complex analytics product requirements into clear specifications for engineering teams, leveraging deep understanding of data pipelines and ML workflows.",
-    "required_skills": [
-      "Roadmapping",
-      "Agile Methodology",
-      "Market Analysis",
-      "Product Lifecycle Management",
-      "Stakeholder Management"
-    ]
-  },
-  {
-    "id": 13,
-    "title": "AI/ML Engineer",
-    "company": "NeuralWorks",
-    "location": "Paris, France",
-    "description": "Research, train, and deploy state-of-the-art machine learning models for NLP and computer vision use-cases in production environments.",
-    "required_skills": [
-      "Python Programming",
-      "Model Training",
-      "Natural Language Processing",
-      "Neural Networks",
-      "Statistical Modeling"
-    ]
-  },
-  {
-    "id": 14,
-    "title": "ML Platform Engineer",
-    "company": "Horizon AI",
-    "location": "San Francisco, USA",
-    "description": "Build and maintain the infrastructure and tooling that enable data scientists to train, evaluate, and ship machine learning models at scale.",
-    "required_skills": [
-      "Python Programming",
-      "Model Training",
-      "Neural Networks",
-      "AI Ethics",
-      "Statistical Modeling"
-    ]
+      "operate lifting equipment",
+      "perform machine maintenance",
+      "troubleshoot",
+      "metal drawing processes",
+      "metal forming technologies",
+      "monitor automated machines",
+      "wear appropriate protective gear"
+    ],
+    "metadata": {
+      "esco_uri": "http://data.europa.eu/esco/occupation/000e93a3-d956-4e45-aacb-f12c83fedf84",
+      "type": "essential"
+    }
   }
 ]

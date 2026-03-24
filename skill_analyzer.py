@@ -1,4 +1,6 @@
 import json
+import os
+import csv
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Tuple
@@ -40,6 +42,8 @@ class JobListing(BaseModel):
     location: str
     description: str
     required_skills: List[str]
+    industry: Optional[str] = "General"
+    metadata: Optional[Dict[str, Any]] = {}
     match_percentage: Optional[float] = Field(
         default=None,
         description="Percentage of required skills matched against the user's profile (0-100)",
@@ -57,20 +61,25 @@ class AnalysisResult:
 
 class SkillAnalyzer:
     """
-    MVP analyzer:
-    - Builds TF-IDF on role documents (skills/knowledge text) at boot.
-    - For requests: vectorizes user text once and compares to target role doc.
-    - Extracted skills: token overlap between user input and role skills (fast heuristic).
-    - Gaps: role skills not detected in user tokens.
-    - Recommendations: simple stubs per gap (frontend-ready).
+    Advanced Skill & Job Matcher:
+    - Normalizes taxonomy data from ESCO, Piemonte, or custom JSON formats.
+    - Specifically handles ESCO flat-list relationship structures.
+    - Performs case-insensitive role analysis.
+    - Ranks jobs using TF-IDF vector similarity blended with exact matches.
     """
 
-    def __init__(self, taxonomy: Dict[str, Any]) -> None:
+    def __init__(self, taxonomy: Any) -> None:
         self.taxonomy = taxonomy
-        self.roles = self._extract_roles(taxonomy)  # role -> role_obj
+        self.roles = self._extract_roles(taxonomy)
+        
         if not self.roles:
-            raise ValueError("Taxonomy contains no roles/profiles.")
+            print("WARNING: Taxonomy extraction resulted in 0 roles. Injecting Fallback.")
+            self.roles = {"Fallback Role": {"name": "Fallback Role", "skills": ["system integration"]}}
+        else:
+            print(f"SUCCESS: SkillAnalyzer initialized with {len(self.roles)} unique roles.")
 
+        # For case-insensitive lookup: essential for matching UI input to ESCO labels
+        self._role_lookup_map = {name.lower(): name for name in self.roles.keys()}
         self.role_names = sorted(self.roles.keys())
 
         role_docs: List[str] = []
@@ -91,190 +100,220 @@ class SkillAnalyzer:
 
     @classmethod
     def from_taxonomy_file(cls, path: str) -> "SkillAnalyzer":
-        with open(path, "r", encoding="utf-8") as f:
-            taxonomy = json.load(f)
-        return cls(taxonomy)
+        """Safely loads JSON, strips Windows BOMs, and provides deep error logging."""
+        taxonomy = {"profiles": []}
+        try:
+            if not os.path.exists(path):
+                print(f"CRITICAL: {path} not found.")
+                return cls(taxonomy)
 
-    # ------------------------------------------------------------------
-    # Job-search helpers
-    # ------------------------------------------------------------------
+            # utf-8-sig automatically strips the invisible Windows BOM if it exists
+            with open(path, "r", encoding="utf-8-sig") as f:
+                content = f.read().strip()
+                
+                if not content:
+                    print(f"CRITICAL: {path} is completely empty (0 bytes).")
+                    return cls(taxonomy)
+                    
+                if content.startswith("version https://git-lfs"):
+                    print(f"CRITICAL: {path} is a Git LFS pointer. Enable GIT_LFS_ENABLED=true in Render.")
+                    return cls(taxonomy)
+                
+                # Load the JSON
+                taxonomy = json.loads(content)
+                
+        except json.JSONDecodeError as e:
+            print(f"CRITICAL: JSON Decode Error in {path}: {e}")
+            print(f"--- CONTENT PREVIEW (First 200 chars) ---")
+            print(repr(content[:200]))
+            print(f"-----------------------------------------")
+        except Exception as e:
+            print(f"Error loading taxonomy {path}: {e}")
+            
+        return cls(taxonomy)
 
     @staticmethod
     def load_jobs(path: str) -> List[JobListing]:
-        """Load job listings from a JSON file."""
-        with open(path, "r", encoding="utf-8") as f:
-            raw: List[Dict[str, Any]] = json.load(f)
-        return [JobListing(**item) for item in raw]
-
-    @staticmethod
-    def search_jobs(
-        jobs: List[JobListing],
-        user_skills: List[str],
-        query: Optional[str] = None,
-        limit: int = 10,
-    ) -> List[JobListing]:
-        """Return *limit* job listings ranked by skill-match percentage.
-
-        Each returned ``JobListing`` has its ``match_percentage`` field
-        populated.  Jobs with no skill overlap are included last so that
-        callers always get a full result set when ``limit`` allows it.
-
-        Args:
-            jobs: Full catalogue of available job listings.
-            user_skills: Skills extracted from the user's profile.
-            query: Optional free-text query to pre-filter by title/description
-                   (case-insensitive substring match).
-            limit: Maximum number of results to return (1-50).
-        """
-        user_skill_tokens: set = set()
-        for skill in user_skills:
-            user_skill_tokens.update(_normalize_text(skill).split())
-
-        candidates = jobs
-        if query:
-            q_lower = query.strip().lower()
-            candidates = [
-                j for j in candidates
-                if q_lower in j.title.lower() or q_lower in j.description.lower()
-            ]
-
-        scored: List[Tuple[float, JobListing]] = []
-        for job in candidates:
-            if not job.required_skills:
-                pct = 0.0
-            else:
-                matched = sum(
-                    1 for skill in job.required_skills
-                    if bool(user_skill_tokens.intersection(set(_normalize_text(skill).split())))
-                )
-                pct = round(matched / len(job.required_skills) * 100.0, 2)
-            scored.append((pct, job))
-
-        scored.sort(key=lambda t: t[0], reverse=True)
-
-        results: List[JobListing] = []
-        for pct, job in scored[:limit]:
-            results.append(job.copy(update={"match_percentage": pct}))
-        return results
+        """Safely load job listings, stripping Windows BOMs and handling LFS pointers."""
+        try:
+            if not os.path.exists(path):
+                return []
+                
+            with open(path, "r", encoding="utf-8-sig") as f:
+                content = f.read().strip()
+                
+                if not content:
+                    return []
+                    
+                if content.startswith("version https://git-lfs"):
+                    print(f"CRITICAL: {path} is an LFS pointer.")
+                    return []
+                    
+                raw: List[Dict[str, Any]] = json.loads(content)
+                return [JobListing(**item) for item in raw]
+                
+        except json.JSONDecodeError as e:
+            print(f"CRITICAL: JSON Decode Error in {path}: {e}")
+            print(f"--- JOBS CONTENT PREVIEW ---")
+            print(repr(content[:200]))
+            return []
+        except Exception as e:
+            print(f"Error loading jobs: {e}")
+            return []
 
     def get_roles(self) -> List[str]:
         return self.role_names
 
     def analyze(self, target_role: str, user_input: str) -> AnalysisResult:
-        if target_role not in self.roles:
+        # Normalize target_role for lookup
+        target_norm = target_role.strip().lower()
+        if target_norm not in self._role_lookup_map:
             raise KeyError(target_role)
-
+            
+        actual_key = self._role_lookup_map[target_norm]
         user_doc = _normalize_text(user_input)
+        
         if not user_doc:
-            raise ValueError("Empty user input after normalization.")
+            raise ValueError("Empty input.")
 
         user_vec = self.vectorizer.transform([user_doc])
-
-        role_idx = self.role_names.index(target_role)
+        role_idx = self.role_names.index(actual_key)
         role_vec = self.role_matrix[role_idx]
 
         sim = cosine_similarity(user_vec, role_vec)[0][0]
         match_percentage = round(_safe_float(sim) * 100.0, 2)
 
-        role_skills = self._role_skills.get(target_role, [])
+        role_skills = self._role_skills.get(actual_key, [])
         extracted_skills, gaps = self._compute_skills_and_gaps(user_doc, role_skills)
         recommendations = self._recommend_for_gaps(gaps)
 
         return AnalysisResult(
-            target_role=target_role,
+            target_role=actual_key,
             extracted_skills=extracted_skills,
             match_percentage=match_percentage,
             skill_gaps=gaps,
             recommendations=recommendations,
         )
 
-    def _extract_roles(self, taxonomy: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-        if isinstance(taxonomy.get("profiles"), list):
-            out: Dict[str, Dict[str, Any]] = {}
-            for p in taxonomy["profiles"]:
-                name = (p.get("name") or "").strip()
+    def search_jobs(
+        self,
+        jobs: List[JobListing],
+        user_skills: List[str],
+        query: Optional[str] = None,
+        limit: int = 10,
+    ) -> List[JobListing]:
+        if not jobs: return []
+        user_profile_doc = _normalize_text(" ".join(user_skills))
+        user_vec = self.vectorizer.transform([user_profile_doc])
+        scored = []
+        q_lower = query.strip().lower() if query else None
+
+        for job in jobs:
+            # Substring text search filter
+            if q_lower and q_lower not in job.title.lower() and q_lower not in job.description.lower():
+                continue
+            
+            # Semantic matching based on description and required skills
+            job_req_doc = _normalize_text(" ".join(job.required_skills) + " " + job.description)
+            job_vec = self.vectorizer.transform([job_req_doc])
+            sim = cosine_similarity(user_vec, job_vec)[0][0]
+            pct = round(_safe_float(sim) * 100.0, 2)
+            
+            # Exact skill matching blend
+            user_skill_set = set(_normalize_text(s) for s in user_skills)
+            exact_matches = sum(1 for rs in job.required_skills if _normalize_text(rs) in user_skill_set)
+            
+            if job.required_skills:
+                exact_pct = (exact_matches / len(job.required_skills)) * 100
+                pct = round((pct * 0.4) + (exact_pct * 0.6), 2)
+                
+            scored.append((pct, job))
+
+        scored.sort(key=lambda t: t[0], reverse=True)
+        return [job.model_copy(update={"match_percentage": pct}) for pct, job in scored[:limit]]
+
+    def _extract_roles(self, taxonomy: Any) -> Dict[str, Dict[str, Any]]:
+        """
+        Deep extraction: Aggregates flat ESCO skill relation lists 
+        into occupation-centric profile objects.
+        """
+        out: Dict[str, Dict[str, Any]] = {}
+        
+        # 1. Handle root-level list (Standard ESCO JSON Export format)
+        if isinstance(taxonomy, list):
+            for item in taxonomy:
+                # Key identifiers for ESCO labels vs generic ones
+                name = item.get("occupationLabel") or item.get("name") or item.get("title")
                 if name:
-                    out[name] = p
+                    name = str(name).strip()
+                    if name not in out:
+                        out[name] = {
+                            "name": name, 
+                            "skills": [], 
+                            "knowledge": [], 
+                            "description": item.get("description", "")
+                        }
+                    
+                    # Aggregate skill labels into the parent occupation
+                    skill_label = item.get("skillLabel")
+                    if skill_label:
+                        skill_type = str(item.get("skillType", "")).lower()
+                        if "knowledge" in skill_type:
+                            out[name]["knowledge"].append(skill_label)
+                        else:
+                            out[name]["skills"].append(skill_label)
+            
+            # Final cleaning: deduplicate skills per role
+            for role in out:
+                out[role]["skills"] = list(set(out[role]["skills"]))
+                out[role]["knowledge"] = list(set(out[role]["knowledge"]))
             return out
 
-        if isinstance(taxonomy.get("roles"), dict):
-            out: Dict[str, Dict[str, Any]] = {}
-            for name, obj in taxonomy["roles"].items():
-                if isinstance(name, str) and name.strip() and isinstance(obj, dict):
-                    out[name.strip()] = obj
-            return out
-
-        return {}
+        # 2. Handle root-level dictionary (Nested formats)
+        if isinstance(taxonomy, dict):
+            for key in ["profiles", "occupations", "roles"]:
+                items = taxonomy.get(key)
+                if isinstance(items, list):
+                    return self._extract_roles(items)
+            
+            # Direct dictionary mapping RoleName -> Data
+            for key, val in taxonomy.items():
+                if isinstance(val, dict) and key not in ["profiles", "metadata", "version"]:
+                    role_name = val.get("name") or key
+                    out[role_name] = val
+                    
+        return out
 
     def _extract_skills_list(self, role_obj: Dict[str, Any]) -> List[str]:
         skills = role_obj.get("skills") or []
-        out: List[str] = []
         if isinstance(skills, list):
-            for s in skills:
-                if isinstance(s, str):
-                    val = s.strip()
-                    if val:
-                        out.append(val)
-                elif isinstance(s, dict):
-                    val = (s.get("name") or "").strip()
-                    if val:
-                        out.append(val)
-        return sorted(set(out))
+            return sorted(set(str(s).strip() for s in skills if s))
+        return []
 
     def _role_to_document(self, role_obj: Dict[str, Any]) -> str:
-        parts: List[str] = []
-
-        for s in self._extract_skills_list(role_obj):
-            parts.append(s)
-
+        parts = []
+        parts.extend(self._extract_skills_list(role_obj))
         knowledge = role_obj.get("knowledge") or []
         if isinstance(knowledge, list):
-            for k in knowledge:
-                if isinstance(k, str) and k.strip():
-                    parts.append(k.strip())
-                elif isinstance(k, dict):
-                    val = (k.get("name") or "").strip()
-                    if val:
-                        parts.append(val)
-
-        desc = role_obj.get("description")
-        if isinstance(desc, str) and desc.strip():
-            parts.append(desc.strip())
-
+            parts.extend([str(k).strip() for k in knowledge if k])
+        desc = role_obj.get("description") or ""
+        if desc: parts.append(str(desc))
         return _normalize_text(" ".join(parts))
 
     def _compute_skills_and_gaps(self, user_doc: str, role_skills: List[str]) -> Tuple[List[str], List[str]]:
         user_tokens = set(user_doc.split())
-
-        extracted: List[str] = []
-        gaps: List[str] = []
-
+        extracted, gaps = [], []
         for skill in role_skills:
             skill_norm = _normalize_text(skill)
             skill_tokens = set(skill_norm.split())
-
             if skill_tokens and user_tokens.intersection(skill_tokens):
                 extracted.append(skill)
             else:
                 gaps.append(skill)
-
         return extracted[:25], gaps[:25]
 
     def _recommend_for_gaps(self, gaps: List[str]) -> List[RecommendationItem]:
-        recs: List[RecommendationItem] = []
-        for idx, skill in enumerate(gaps, start=1):
-            # Seed simulated upvote scores in priority order: the first gap
-            # (most critical missing skill) receives the highest score.
-            # In production these values would come from real community upvote data.
-            upvotes = max(0, (len(gaps) - idx + 1) * 10)
-            recs.append(
-                RecommendationItem(
-                    id=idx,
-                    title=f"Intro to {skill}",
-                    target_skill=skill,
-                    type="Course",
-                    duration="4h",
-                    upvotes=upvotes,
-                )
-            )
-        return recs
+        return [RecommendationItem(
+            id=i, title=f"Learning Path: {s}", target_skill=s, 
+            type="Course", duration="4h", upvotes=max(0, (len(gaps)-i+1)*10)
+        ) for i, s in enumerate(gaps, 1)]
