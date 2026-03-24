@@ -100,40 +100,63 @@ class SkillAnalyzer:
 
     @classmethod
     def from_taxonomy_file(cls, path: str) -> "SkillAnalyzer":
-        """Safely loads JSON, preventing crashes from Git LFS pointers."""
+        """Safely loads JSON, strips Windows BOMs, and provides deep error logging."""
         taxonomy = {"profiles": []}
         try:
             if not os.path.exists(path):
                 print(f"CRITICAL: {path} not found.")
                 return cls(taxonomy)
 
-            with open(path, "r", encoding="utf-8") as f:
+            # utf-8-sig automatically strips the invisible Windows BOM if it exists
+            with open(path, "r", encoding="utf-8-sig") as f:
                 content = f.read().strip()
+                
+                if not content:
+                    print(f"CRITICAL: {path} is completely empty (0 bytes).")
+                    return cls(taxonomy)
+                    
                 if content.startswith("version https://git-lfs"):
                     print(f"CRITICAL: {path} is a Git LFS pointer. Enable GIT_LFS_ENABLED=true in Render.")
                     return cls(taxonomy)
-                elif content:
-                    taxonomy = json.loads(content)
-        except (json.JSONDecodeError, FileNotFoundError) as e:
+                
+                # Load the JSON
+                taxonomy = json.loads(content)
+                
+        except json.JSONDecodeError as e:
+            print(f"CRITICAL: JSON Decode Error in {path}: {e}")
+            print(f"--- CONTENT PREVIEW (First 200 chars) ---")
+            print(repr(content[:200]))
+            print(f"-----------------------------------------")
+        except Exception as e:
             print(f"Error loading taxonomy {path}: {e}")
             
         return cls(taxonomy)
 
     @staticmethod
     def load_jobs(path: str) -> List[JobListing]:
-        """Safely load job listings, handling Git LFS pointers."""
+        """Safely load job listings, stripping Windows BOMs and handling LFS pointers."""
         try:
             if not os.path.exists(path):
                 return []
-            with open(path, "r", encoding="utf-8") as f:
+                
+            with open(path, "r", encoding="utf-8-sig") as f:
                 content = f.read().strip()
+                
+                if not content:
+                    return []
+                    
                 if content.startswith("version https://git-lfs"):
                     print(f"CRITICAL: {path} is an LFS pointer.")
                     return []
-                if not content:
-                    return []
+                    
                 raw: List[Dict[str, Any]] = json.loads(content)
                 return [JobListing(**item) for item in raw]
+                
+        except json.JSONDecodeError as e:
+            print(f"CRITICAL: JSON Decode Error in {path}: {e}")
+            print(f"--- JOBS CONTENT PREVIEW ---")
+            print(repr(content[:200]))
+            return []
         except Exception as e:
             print(f"Error loading jobs: {e}")
             return []
