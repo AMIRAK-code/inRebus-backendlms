@@ -235,13 +235,16 @@ class SkillAnalyzer:
     def _extract_roles(self, taxonomy: Any) -> Dict[str, Dict[str, Any]]:
         """
         Deep extraction: Aggregates flat ESCO skill relation lists 
-        into occupation-centric profile objects.
+        into occupation-centric profile objects. Dynamically finds nested lists.
         """
         out: Dict[str, Dict[str, Any]] = {}
         
-        # 1. Handle root-level list (Standard ESCO JSON Export format)
+        # 1. Handle root-level list
         if isinstance(taxonomy, list):
             for item in taxonomy:
+                if not isinstance(item, dict):
+                    continue
+                    
                 # Key identifiers for ESCO labels vs generic ones
                 name = item.get("occupationLabel") or item.get("name") or item.get("title")
                 if name:
@@ -249,12 +252,12 @@ class SkillAnalyzer:
                     if name not in out:
                         out[name] = {
                             "name": name, 
-                            "skills": [], 
-                            "knowledge": [], 
+                            "skills": item.get("skills", []), # Preserve if already aggregated
+                            "knowledge": item.get("knowledge", []), 
                             "description": item.get("description", "")
                         }
                     
-                    # Aggregate skill labels into the parent occupation
+                    # Aggregate skill labels if it's a flat ESCO relation list
                     skill_label = item.get("skillLabel")
                     if skill_label:
                         skill_type = str(item.get("skillType", "")).lower()
@@ -271,16 +274,17 @@ class SkillAnalyzer:
 
         # 2. Handle root-level dictionary (Nested formats)
         if isinstance(taxonomy, dict):
-            for key in ["profiles", "occupations", "roles"]:
-                items = taxonomy.get(key)
-                if isinstance(items, list):
-                    return self._extract_roles(items)
-            
-            # Direct dictionary mapping RoleName -> Data
+            # Dynamically search ALL keys for lists (catches "percorsi_standard", "profiles", etc.)
             for key, val in taxonomy.items():
-                if isinstance(val, dict) and key not in ["profiles", "metadata", "version"]:
-                    role_name = val.get("name") or key
-                    out[role_name] = val
+                if isinstance(val, list):
+                    out.update(self._extract_roles(val))
+            
+            # If no lists were found, check if it's a direct dictionary mapping
+            if not out:
+                for key, val in taxonomy.items():
+                    if isinstance(val, dict) and key not in ["profiles", "metadata", "version", "percorsi_standard"]:
+                        role_name = val.get("name") or key
+                        out[role_name] = val
                     
         return out
 
