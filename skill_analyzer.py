@@ -42,6 +42,8 @@ class JobListing(BaseModel):
     location: str
     description: str
     required_skills: List[str]
+    industry: Optional[str] = "General"
+    metadata: Optional[Dict[str, Any]] = {}
     match_percentage: Optional[float] = Field(
         default=None,
         description="Percentage of required skills matched against the user's profile (0-100)",
@@ -61,8 +63,9 @@ class SkillAnalyzer:
     """
     Advanced Skill & Job Matcher:
     - Normalizes taxonomy data from ESCO, Piemonte, or custom JSON formats.
+    - Specifically handles ESCO flat-list relationship structures.
     - Performs case-insensitive role analysis.
-    - Ranks jobs using TF-IDF vector similarity.
+    - Ranks jobs using TF-IDF vector similarity blended with exact matches.
     """
 
     def __init__(self, taxonomy: Any) -> None:
@@ -75,7 +78,7 @@ class SkillAnalyzer:
         else:
             print(f"SUCCESS: SkillAnalyzer initialized with {len(self.roles)} unique roles.")
 
-        # For case-insensitive lookup
+        # For case-insensitive lookup: essential for matching UI input to ESCO labels
         self._role_lookup_map = {name.lower(): name for name in self.roles.keys()}
         self.role_names = sorted(self.roles.keys())
 
@@ -139,6 +142,7 @@ class SkillAnalyzer:
         return self.role_names
 
     def analyze(self, target_role: str, user_input: str) -> AnalysisResult:
+        # Normalize target_role for lookup
         target_norm = target_role.strip().lower()
         if target_norm not in self._role_lookup_map:
             raise KeyError(target_role)
@@ -182,17 +186,24 @@ class SkillAnalyzer:
         q_lower = query.strip().lower() if query else None
 
         for job in jobs:
+            # Substring text search filter
             if q_lower and q_lower not in job.title.lower() and q_lower not in job.description.lower():
                 continue
+            
+            # Semantic matching based on description and required skills
             job_req_doc = _normalize_text(" ".join(job.required_skills) + " " + job.description)
             job_vec = self.vectorizer.transform([job_req_doc])
             sim = cosine_similarity(user_vec, job_vec)[0][0]
             pct = round(_safe_float(sim) * 100.0, 2)
+            
+            # Exact skill matching blend
             user_skill_set = set(_normalize_text(s) for s in user_skills)
             exact_matches = sum(1 for rs in job.required_skills if _normalize_text(rs) in user_skill_set)
+            
             if job.required_skills:
                 exact_pct = (exact_matches / len(job.required_skills)) * 100
                 pct = round((pct * 0.4) + (exact_pct * 0.6), 2)
+                
             scored.append((pct, job))
 
         scored.sort(key=lambda t: t[0], reverse=True)
@@ -200,22 +211,27 @@ class SkillAnalyzer:
 
     def _extract_roles(self, taxonomy: Any) -> Dict[str, Dict[str, Any]]:
         """
-        Deep extraction: handles ESCO skill relation lists, 
-        root-level lists, and nested profile/role objects.
+        Deep extraction: Aggregates flat ESCO skill relation lists 
+        into occupation-centric profile objects.
         """
         out: Dict[str, Dict[str, Any]] = {}
         
-        # 1. Handle root-level list (common in ESCO skill relation exports)
+        # 1. Handle root-level list (Standard ESCO JSON Export format)
         if isinstance(taxonomy, list):
             for item in taxonomy:
-                # Prioritize 'occupationLabel' (ESCO) or 'name' (Piemonte)
+                # Key identifiers for ESCO labels vs generic ones
                 name = item.get("occupationLabel") or item.get("name") or item.get("title")
                 if name:
                     name = str(name).strip()
                     if name not in out:
-                        out[name] = {"name": name, "skills": [], "knowledge": [], "description": item.get("description", "")}
+                        out[name] = {
+                            "name": name, 
+                            "skills": [], 
+                            "knowledge": [], 
+                            "description": item.get("description", "")
+                        }
                     
-                    # If this is a skill relation list, append the skill
+                    # Aggregate skill labels into the parent occupation
                     skill_label = item.get("skillLabel")
                     if skill_label:
                         skill_type = str(item.get("skillType", "")).lower()
@@ -223,19 +239,21 @@ class SkillAnalyzer:
                             out[name]["knowledge"].append(skill_label)
                         else:
                             out[name]["skills"].append(skill_label)
+            
+            # Final cleaning: deduplicate skills per role
+            for role in out:
+                out[role]["skills"] = list(set(out[role]["skills"]))
+                out[role]["knowledge"] = list(set(out[role]["knowledge"]))
             return out
 
-        # 2. Handle root-level dictionary
+        # 2. Handle root-level dictionary (Nested formats)
         if isinstance(taxonomy, dict):
-            # Check for nested list containers
             for key in ["profiles", "occupations", "roles"]:
                 items = taxonomy.get(key)
                 if isinstance(items, list):
-                    # Recurse using the list logic above
                     return self._extract_roles(items)
             
-            # Check if the dict itself is a mapping of RoleName -> Data
-            # (Excluding metadata keys like 'profiles')
+            # Direct dictionary mapping RoleName -> Data
             for key, val in taxonomy.items():
                 if isinstance(val, dict) and key not in ["profiles", "metadata", "version"]:
                     role_name = val.get("name") or key
